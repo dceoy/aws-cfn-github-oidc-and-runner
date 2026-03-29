@@ -1,0 +1,134 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: GitHub OIDC identity provider and IAM role for GitHub Actions
+
+Parameters:
+  SystemName:
+    Type: String
+    Default: gha
+    Description: System name for resource naming
+    AllowedPattern: '[a-z0-9-]+'
+  EnvType:
+    Type: String
+    Default: dev
+    Description: Environment type for resource naming
+    AllowedPattern: '[a-z0-9-]+'
+  EnableGitHubOidc:
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Whether to create the GitHub OIDC identity provider
+  GitHubEnterpriseSlug:
+    Type: String
+    Default: ''
+    Description: GitHub Enterprise slug (leave empty for public GitHub)
+  IamRoleName:
+    Type: String
+    Default: iac
+    Description: Name suffix for the IAM role
+    AllowedPattern: '[a-zA-Z0-9-]+'
+  GitHubRepositoriesRequiringOidc:
+    Type: CommaDelimitedList
+    Description: >-
+      GitHub repository patterns allowed to assume the IAM role
+      (e.g., repo:dceoy/*:*)
+  IamPolicyArns:
+    Type: CommaDelimitedList
+    Description: >-
+      ARNs of IAM managed policies to attach to the role
+      (e.g., arn:aws:iam::aws:policy/AdministratorAccess)
+  GitHubOrganizationNames:
+    Type: CommaDelimitedList
+    Default: ''
+    Description: >-
+      GitHub organization names to add as client IDs
+      (leave empty for none)
+
+Conditions:
+  CreateOidcProvider: !Equals
+    - !Ref EnableGitHubOidc
+    - 'true'
+  HasEnterpriseSlug: !Not
+    - !Equals
+      - !Ref GitHubEnterpriseSlug
+      - ''
+  HasGitHubOrganizations: !Not
+    - !Equals
+      - !Select
+        - 0
+        - !Ref GitHubOrganizationNames
+      - ''
+
+Resources:
+  GitHubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Condition: CreateOidcProvider
+    Properties:
+      Url: !If
+        - HasEnterpriseSlug
+        - !Sub 'https://token.actions.githubusercontent.com/${GitHubEnterpriseSlug}'
+        - https://token.actions.githubusercontent.com
+      ClientIdList: !If
+        - HasGitHubOrganizations
+        - !Split
+          - ','
+          - !Sub
+            - 'sts.amazonaws.com,${Orgs}'
+            - Orgs: !Join
+                - ','
+                - !Ref GitHubOrganizationNames
+        - - sts.amazonaws.com
+      ThumbprintList:
+        - ffffffffffffffffffffffffffffffffffffffff
+      Tags:
+        - Key: Name
+          Value: !Sub '${SystemName}-${EnvType}-github-oidc-provider'
+        - Key: SystemName
+          Value: !Ref SystemName
+        - Key: EnvType
+          Value: !Ref EnvType
+
+  GitHubIamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${SystemName}-${EnvType}-github-${IamRoleName}-iam-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !If
+                - CreateOidcProvider
+                - !Ref GitHubOidcProvider
+                - !Sub >-
+                    arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              StringLike:
+                token.actions.githubusercontent.com:sub: !Ref GitHubRepositoriesRequiringOidc
+      ManagedPolicyArns: !Ref IamPolicyArns
+      MaxSessionDuration: 3600
+      Tags:
+        - Key: Name
+          Value: !Sub '${SystemName}-${EnvType}-github-${IamRoleName}-iam-role'
+        - Key: SystemName
+          Value: !Ref SystemName
+        - Key: EnvType
+          Value: !Ref EnvType
+
+Outputs:
+  GitHubIamOidcProviderArn:
+    Condition: CreateOidcProvider
+    Description: ARN of the GitHub OIDC identity provider
+    Value: !GetAtt GitHubOidcProvider.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-GitHubIamOidcProviderArn'
+  GitHubIamRoleArn:
+    Description: ARN of the GitHub IAM role
+    Value: !GetAtt GitHubIamRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-GitHubIamRoleArn'

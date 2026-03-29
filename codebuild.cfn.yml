@@ -1,0 +1,266 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  CodeBuild project as GitHub Actions self-hosted runner
+  with CloudWatch Logs and IAM role
+
+Parameters:
+  SystemName:
+    Type: String
+    Default: gha
+    Description: System name for resource naming
+    AllowedPattern: '[a-z0-9-]+'
+  EnvType:
+    Type: String
+    Default: dev
+    Description: Environment type for resource naming
+    AllowedPattern: '[a-z0-9-]+'
+  GitHubRepository:
+    Type: String
+    Description: >-
+      GitHub repository in the format owner/repo
+      (e.g., dceoy/terraform-aws-github-oidc-and-runner)
+    AllowedPattern: '[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+'
+  GitHubEnterpriseSlug:
+    Type: String
+    Default: ''
+    Description: GitHub Enterprise slug (leave empty for public GitHub)
+  KmsKeyArn:
+    Type: String
+    Default: ''
+    Description: >-
+      ARN of the KMS key for CloudWatch Logs encryption
+      (leave empty to disable encryption)
+  CloudWatchLogsRetentionInDays:
+    Type: Number
+    Default: 30
+    AllowedValues:
+      - 1
+      - 3
+      - 5
+      - 7
+      - 14
+      - 30
+      - 60
+      - 90
+      - 120
+      - 150
+      - 180
+      - 365
+      - 400
+      - 545
+      - 731
+      - 1096
+      - 1827
+      - 2192
+      - 2557
+      - 2922
+      - 3288
+      - 3653
+    Description: Number of days to retain CloudWatch Logs
+  CodeBuildEnvironmentType:
+    Type: String
+    Default: LINUX_CONTAINER
+    AllowedValues:
+      - ARM_CONTAINER
+      - ARM_LAMBDA_CONTAINER
+      - LINUX_CONTAINER
+      - LINUX_GPU_CONTAINER
+      - LINUX_LAMBDA_CONTAINER
+      - MAC_ARM
+      - WINDOWS_CONTAINER
+      - WINDOWS_SERVER_2019_CONTAINER
+    Description: CodeBuild environment type
+  CodeBuildEnvironmentComputeType:
+    Type: String
+    Default: BUILD_GENERAL1_SMALL
+    AllowedValues:
+      - BUILD_GENERAL1_SMALL
+      - BUILD_GENERAL1_MEDIUM
+      - BUILD_GENERAL1_LARGE
+      - BUILD_GENERAL1_XLARGE
+      - BUILD_GENERAL1_2XLARGE
+      - BUILD_LAMBDA_1GB
+      - BUILD_LAMBDA_2GB
+      - BUILD_LAMBDA_4GB
+      - BUILD_LAMBDA_8GB
+      - BUILD_LAMBDA_10GB
+    Description: CodeBuild environment compute type
+  CodeBuildEnvironmentImage:
+    Type: String
+    Default: aws/codebuild/standard:7.0
+    Description: CodeBuild environment image
+  CodeBuildEnvironmentPrivilegedMode:
+    Type: String
+    Default: 'false'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Whether to enable privileged mode in the CodeBuild environment
+  CodeBuildBuildTimeout:
+    Type: Number
+    Default: 5
+    MinValue: 5
+    MaxValue: 2160
+    Description: Build timeout in minutes
+  CodeBuildQueuedTimeout:
+    Type: Number
+    Default: 5
+    MinValue: 5
+    MaxValue: 480
+    Description: Queued timeout in minutes
+
+Conditions:
+  HasKmsKey: !Not
+    - !Equals
+      - !Ref KmsKeyArn
+      - ''
+  HasEnterpriseSlug: !Not
+    - !Equals
+      - !Ref GitHubEnterpriseSlug
+      - ''
+  IsPrivilegedMode: !Equals
+    - !Ref CodeBuildEnvironmentPrivilegedMode
+    - 'true'
+
+Resources:
+  CodeBuildCloudWatchLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/${SystemName}/${EnvType}/codebuild'
+      RetentionInDays: !Ref CloudWatchLogsRetentionInDays
+      KmsKeyId: !If
+        - HasKmsKey
+        - !Ref KmsKeyArn
+        - !Ref AWS::NoValue
+      Tags:
+        - Key: Name
+          Value: !Sub '${SystemName}-${EnvType}-codebuild-log-group'
+        - Key: SystemName
+          Value: !Ref SystemName
+        - Key: EnvType
+          Value: !Ref EnvType
+
+  CodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${SystemName}-${EnvType}-codebuild-iam-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub '${SystemName}-${EnvType}-codebuild-iam-policy'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: AllowCloudWatchLogs
+                Effect: Allow
+                Action:
+                  - logs:DescribeLogGroups
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:DescribeLogStreams
+                Resource:
+                  - !GetAtt CodeBuildCloudWatchLogGroup.Arn
+                  - !Sub '${CodeBuildCloudWatchLogGroup.Arn}:*'
+              - !If
+                - HasKmsKey
+                - Sid: AllowKmsGenerateDataKey
+                  Effect: Allow
+                  Action:
+                    - kms:GenerateDataKey
+                  Resource:
+                    - !Ref KmsKeyArn
+                - !Ref AWS::NoValue
+      Tags:
+        - Key: Name
+          Value: !Sub '${SystemName}-${EnvType}-codebuild-iam-role'
+        - Key: SystemName
+          Value: !Ref SystemName
+        - Key: EnvType
+          Value: !Ref EnvType
+
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub
+        - '${SystemName}-${EnvType}-codebuild-${RepoName}'
+        - RepoName: !Select
+            - 1
+            - !Split
+              - /
+              - !Ref GitHubRepository
+      Description: !Sub 'GitHub Actions runner for ${GitHubRepository}'
+      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+      Source:
+        Type: !If
+          - HasEnterpriseSlug
+          - GITHUB_ENTERPRISE
+          - GITHUB
+        Location: !Sub 'https://github.com/${GitHubRepository}.git'
+        BuildSpec: |
+          version: 0.2
+          phases:
+            build:
+              commands:
+                - echo "Buildspec will be overridden by GitHub Actions"
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Environment:
+        Type: !Ref CodeBuildEnvironmentType
+        ComputeType: !Ref CodeBuildEnvironmentComputeType
+        Image: !Ref CodeBuildEnvironmentImage
+        PrivilegedMode: !If
+          - IsPrivilegedMode
+          - true
+          - false
+      TimeoutInMinutes: !Ref CodeBuildBuildTimeout
+      QueuedTimeoutInMinutes: !Ref CodeBuildQueuedTimeout
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+          GroupName: !Ref CodeBuildCloudWatchLogGroup
+          StreamName: !Select
+            - 1
+            - !Split
+              - /
+              - !Ref GitHubRepository
+      Tags:
+        - Key: Name
+          Value: !Sub
+            - '${SystemName}-${EnvType}-codebuild-${RepoName}'
+            - RepoName: !Select
+                - 1
+                - !Split
+                  - /
+                  - !Ref GitHubRepository
+        - Key: SystemName
+          Value: !Ref SystemName
+        - Key: EnvType
+          Value: !Ref EnvType
+
+Outputs:
+  CodeBuildProjectName:
+    Description: Name of the CodeBuild project
+    Value: !Ref CodeBuildProject
+    Export:
+      Name: !Sub '${AWS::StackName}-CodeBuildProjectName'
+  CodeBuildProjectArn:
+    Description: ARN of the CodeBuild project
+    Value: !GetAtt CodeBuildProject.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-CodeBuildProjectArn'
+  CodeBuildCloudWatchLogGroupName:
+    Description: Name of the CloudWatch Logs log group
+    Value: !Ref CodeBuildCloudWatchLogGroup
+    Export:
+      Name: !Sub '${AWS::StackName}-CodeBuildCloudWatchLogGroupName'
+  CodeBuildServiceRoleArn:
+    Description: ARN of the CodeBuild service IAM role
+    Value: !GetAtt CodeBuildServiceRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-CodeBuildServiceRoleArn'
