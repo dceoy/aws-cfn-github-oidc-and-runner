@@ -9,9 +9,9 @@ This repository provides CloudFormation templates equivalent to the Terraform mo
 
 | Template | Description |
 | --- | --- |
-| [oidc.cfn.yaml](oidc.cfn.yaml) | GitHub OIDC identity provider and IAM role for GitHub Actions |
-| [kms.cfn.yaml](kms.cfn.yaml) | KMS key for CloudWatch Logs encryption |
-| [codebuild.cfn.yaml](codebuild.cfn.yaml) | CodeBuild project as GitHub Actions self-hosted runner |
+| [oidc.cfn.yml](oidc.cfn.yml) | GitHub OIDC identity provider and IAM role for GitHub Actions |
+| [kms.cfn.yml](kms.cfn.yml) | KMS key for CloudWatch Logs encryption |
+| [codebuild.cfn.yml](codebuild.cfn.yml) | CodeBuild project as GitHub Actions self-hosted runner |
 
 ## Usage
 
@@ -20,7 +20,7 @@ This repository provides CloudFormation templates equivalent to the Terraform mo
 ```sh
 aws cloudformation deploy \
   --stack-name gha-dev-oidc \
-  --template-file oidc.cfn.yaml \
+  --template-file oidc.cfn.yml \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \
     SystemName=gha \
@@ -35,7 +35,7 @@ aws cloudformation deploy \
 ```sh
 aws cloudformation deploy \
   --stack-name gha-dev-kms \
-  --template-file kms.cfn.yaml \
+  --template-file kms.cfn.yml \
   --parameter-overrides \
     SystemName=gha \
     EnvType=dev
@@ -46,7 +46,7 @@ aws cloudformation deploy \
 ```sh
 aws cloudformation deploy \
   --stack-name gha-dev-codebuild \
-  --template-file codebuild.cfn.yaml \
+  --template-file codebuild.cfn.yml \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \
     SystemName=gha \
@@ -63,7 +63,7 @@ sharing the same OIDC provider:
 ```sh
 aws cloudformation deploy \
   --stack-name gha-dev-oidc-llm \
-  --template-file oidc.cfn.yaml \
+  --template-file oidc.cfn.yml \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \
     SystemName=gha \
@@ -81,7 +81,7 @@ Deploy additional CodeBuild stacks for each repository:
 ```sh
 aws cloudformation deploy \
   --stack-name gha-dev-codebuild-another-repo \
-  --template-file codebuild.cfn.yaml \
+  --template-file codebuild.cfn.yml \
   --capabilities CAPABILITY_NAMED_IAM \
   --parameter-overrides \
     SystemName=gha \
