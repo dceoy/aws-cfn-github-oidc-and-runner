@@ -3,7 +3,6 @@ AWSTemplateFormatVersion: '2010-09-09'
 Description: >-
   CodeBuild project as GitHub Actions self-hosted runner
   with CloudWatch Logs and IAM role
-
 Parameters:
   SystemName:
     Type: String
@@ -118,7 +117,6 @@ Parameters:
     MinValue: 5
     MaxValue: 480
     Description: Queued timeout in minutes
-
 Conditions:
   HasKmsKey: !Not
     - !Equals
@@ -139,7 +137,6 @@ Conditions:
   IsPrivilegedMode: !Equals
     - !Ref CodeBuildEnvironmentPrivilegedMode
     - 'true'
-
 Resources:
   CodeBuildCloudWatchLogGroup:
     Type: AWS::Logs::LogGroup
@@ -157,7 +154,6 @@ Resources:
           Value: !Ref SystemName
         - Key: EnvType
           Value: !Ref EnvType
-
   CodeBuildServiceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -200,7 +196,6 @@ Resources:
           Value: !Ref SystemName
         - Key: EnvType
           Value: !Ref EnvType
-
   CodeBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
@@ -267,25 +262,24 @@ Resources:
           Value: !Ref SystemName
         - Key: EnvType
           Value: !Ref EnvType
-
 Outputs:
   CodeBuildProjectName:
     Description: Name of the CodeBuild project
     Value: !Ref CodeBuildProject
     Export:
-      Name: !Sub '${AWS::StackName}-CodeBuildProjectName'
+      Name: !Sub '${SystemName}-${EnvType}-codebuild-project-name'
   CodeBuildProjectArn:
     Description: ARN of the CodeBuild project
     Value: !GetAtt CodeBuildProject.Arn
     Export:
-      Name: !Sub '${AWS::StackName}-CodeBuildProjectArn'
+      Name: !Sub '${SystemName}-${EnvType}-codebuild-project-arn'
   CodeBuildCloudWatchLogGroupName:
     Description: Name of the CloudWatch Logs log group
     Value: !Ref CodeBuildCloudWatchLogGroup
     Export:
-      Name: !Sub '${AWS::StackName}-CodeBuildCloudWatchLogGroupName'
+      Name: !Sub '${SystemName}-${EnvType}-codebuild-cloudwatch-log-group-name'
   CodeBuildServiceRoleArn:
     Description: ARN of the CodeBuild service IAM role
     Value: !GetAtt CodeBuildServiceRole.Arn
     Export:
-      Name: !Sub '${AWS::StackName}-CodeBuildServiceRoleArn'
+      Name: !Sub '${SystemName}-${EnvType}-codebuild-service-role-arn'
