@@ -1,0 +1,50 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  CodeConnections connection for GitHub
+  (complete authorization in the console after stack creation)
+Parameters:
+  SystemName:
+    Type: String
+    Default: gha
+    Description: System name for resource naming
+    AllowedPattern: '[a-z0-9-]+'
+  EnvType:
+    Type: String
+    Default: dev
+    Description: Environment type for resource naming
+    AllowedPattern: '[a-z0-9-]+'
+  GitHubConnectionName:
+    Type: String
+    Default: github-connection
+    Description: Name suffix for the CodeConnections connection
+    AllowedPattern: '[a-zA-Z0-9-]+'
+Resources:
+  GitHubConnection:
+    Type: AWS::CodeConnections::Connection
+    Properties:
+      ConnectionName: !Sub '${SystemName}-${EnvType}-${GitHubConnectionName}'
+      ProviderType: GitHub
+      Tags:
+        - Key: Name
+          Value: !Sub '${SystemName}-${EnvType}-${GitHubConnectionName}'
+        - Key: SystemName
+          Value: !Ref SystemName
+        - Key: EnvType
+          Value: !Ref EnvType
+Outputs:
+  GitHubConnectionName:
+    Description: Name of the CodeConnections connection
+    Value: !Sub '${SystemName}-${EnvType}-${GitHubConnectionName}'
+    Export:
+      Name: !Sub '${SystemName}-${EnvType}-github-connection-name'
+  GitHubConnectionArn:
+    Description: ARN of the CodeConnections connection
+    Value: !GetAtt GitHubConnection.ConnectionArn
+    Export:
+      Name: !Sub '${SystemName}-${EnvType}-github-connection-arn'
+  GitHubConnectionStatus:
+    Description: Status of the CodeConnections connection
+    Value: !GetAtt GitHubConnection.ConnectionStatus
+    Export:
+      Name: !Sub '${SystemName}-${EnvType}-github-connection-status'
