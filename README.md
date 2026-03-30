@@ -7,11 +7,11 @@ This repository provides CloudFormation templates equivalent to the Terraform mo
 
 ## Stacks
 
-| Template | Description |
-| --- | --- |
-| [oidc.cfn.yml](oidc.cfn.yml) | GitHub OIDC identity provider and IAM role for GitHub Actions |
-| [kms.cfn.yml](kms.cfn.yml) | KMS key for CloudWatch Logs encryption |
-| [codebuild.cfn.yml](codebuild.cfn.yml) | CodeBuild project as GitHub Actions self-hosted runner |
+| Template                               | Description                                                   |
+| -------------------------------------- | ------------------------------------------------------------- |
+| [oidc.cfn.yml](oidc.cfn.yml)           | GitHub OIDC identity provider and IAM role for GitHub Actions |
+| [kms.cfn.yml](kms.cfn.yml)             | KMS key for CloudWatch Logs encryption                        |
+| [codebuild.cfn.yml](codebuild.cfn.yml) | CodeBuild project as GitHub Actions self-hosted runner        |
 
 ## Usage
 
@@ -43,6 +43,14 @@ aws cloudformation deploy \
 
 ### 3. Deploy the CodeBuild stack
 
+Before deploying the CodeBuild stack, connect CodeBuild to GitHub with a personal
+access token, Secrets Manager secret, OAuth app, or GitHub App connection. For
+public GitHub repositories, this template creates the repository webhook for
+`WORKFLOW_JOB_QUEUED` events by default. Set `EnableGitHubWebhook=false` if you
+already manage the webhook yourself. CloudFormation cannot create the webhook
+for GitHub Enterprise projects, so configure it manually when
+`GitHubEnterpriseSlug` is set.
+
 ```sh
 aws cloudformation deploy \
   --stack-name gha-dev-codebuild \
@@ -54,6 +62,29 @@ aws cloudformation deploy \
     GitHubRepository=dceoy/terraform-aws-github-oidc-and-runner \
     KmsKeyArn=<KMS_KEY_ARN>
 ```
+
+### 4. Update the GitHub Actions workflow
+
+After the stack is deployed, use the `CodeBuildProjectName` output in the
+workflow `runs-on` label:
+
+```yaml
+name: CI
+
+on:
+  push:
+
+jobs:
+  build:
+    runs-on:
+      - codebuild-<CODEBUILD_PROJECT_NAME>-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "Hello World"
+```
+
+CodeBuild also supports optional label overrides such as `image:`,
+`instance-size:`, `fleet:`, and `buildspec-override:true`.
 
 ### Multiple IAM roles
 
