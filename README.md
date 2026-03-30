@@ -1,24 +1,28 @@
 # aws-cfn-github-oidc-and-runner
 
-AWS CloudFormation templates for GitHub OIDC provider and Actions runner on AWS
+AWS CloudFormation templates for GitHub OIDC provider, CodeConnections
+connection, and Actions runner on AWS
 
 This repository provides CloudFormation templates equivalent to the Terraform module
 [terraform-aws-github-oidc-and-runner](https://github.com/dceoy/terraform-aws-github-oidc-and-runner).
 
 ## Stacks
 
-| Template                               | Description                                                   |
-| -------------------------------------- | ------------------------------------------------------------- |
-| [oidc.cfn.yml](oidc.cfn.yml)           | GitHub OIDC identity provider and IAM role for GitHub Actions |
-| [kms.cfn.yml](kms.cfn.yml)             | KMS key for CloudWatch Logs encryption                        |
-| [codebuild.cfn.yml](codebuild.cfn.yml) | CodeBuild project as GitHub Actions self-hosted runner        |
+| Template                                 | Description                                                   |
+| ---------------------------------------- | ------------------------------------------------------------- |
+| [oidc.cfn.yml](oidc.cfn.yml)             | GitHub OIDC identity provider and IAM role for GitHub Actions |
+| [connection.cfn.yml](connection.cfn.yml) | CodeConnections connection for GitHub App authorization       |
+| [kms.cfn.yml](kms.cfn.yml)               | KMS key for CloudWatch Logs encryption                        |
+| [codebuild.cfn.yml](codebuild.cfn.yml)   | CodeBuild project as GitHub Actions self-hosted runner        |
 
 ## Usage
 
-The OIDC and CodeBuild stacks are independent.
+The OIDC, CodeConnections, and CodeBuild stacks are independent.
 
 - Use `oidc.cfn.yml` when GitHub Actions needs to assume an AWS IAM role through
   GitHub OIDC.
+- Use `connection.cfn.yml` when an AWS service needs a GitHub App connection
+  managed by AWS CodeConnections.
 - Use `codebuild.cfn.yml` when GitHub Actions needs a CodeBuild-based
   self-hosted runner.
 - Use `kms.cfn.yml` only if you want to encrypt CodeBuild CloudWatch Logs with a
@@ -59,6 +63,27 @@ aws cloudformation deploy \
     GitHubRepositoriesRequiringOidc='repo:dceoy/*:*' \
     IamPolicyArns='arn:aws:iam::aws:policy/AmazonBedrockFullAccess'
 ```
+
+### CodeConnections GitHub App connection
+
+Deploy the CodeConnections stack:
+
+```sh
+aws cloudformation deploy \
+  --stack-name gha-dev-connection \
+  --template-file connection.cfn.yml \
+  --parameter-overrides \
+    SystemName=gha \
+    EnvType=dev \
+    GitHubConnectionName=github-connection
+```
+
+After the stack is created, open the connection in the AWS console and complete
+the GitHub authorization flow. CloudFormation-created connections stay in
+`PENDING` until that step makes them `AVAILABLE`.
+
+Use the `GitHubConnectionArn` output anywhere AWS expects a CodeConnections
+connection ARN.
 
 ### CodeBuild self-hosted runners for GitHub Actions
 
