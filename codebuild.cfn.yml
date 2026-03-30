@@ -25,6 +25,15 @@ Parameters:
     Type: String
     Default: ''
     Description: GitHub Enterprise slug (leave empty for public GitHub)
+  EnableGitHubWebhook:
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: >-
+      Whether to let CloudFormation create the GitHub webhook for workflow jobs
+      (set to false if you manage the webhook manually)
   KmsKeyArn:
     Type: String
     Default: ''
@@ -116,6 +125,14 @@ Conditions:
       - !Ref KmsKeyArn
       - ''
   HasEnterpriseSlug: !Not
+    - !Equals
+      - !Ref GitHubEnterpriseSlug
+      - ''
+  ManageGitHubWebhook: !Equals
+    - !Ref EnableGitHubWebhook
+    - 'true'
+  CreateManagedGitHubWebhook: !And
+    - !Condition ManageGitHubWebhook
     - !Equals
       - !Ref GitHubEnterpriseSlug
       - ''
@@ -220,6 +237,14 @@ Resources:
           - false
       TimeoutInMinutes: !Ref CodeBuildBuildTimeout
       QueuedTimeoutInMinutes: !Ref CodeBuildQueuedTimeout
+      Triggers: !If
+        - CreateManagedGitHubWebhook
+        - Webhook: true
+          BuildType: BUILD
+          FilterGroups:
+            - - Type: EVENT
+                Pattern: WORKFLOW_JOB_QUEUED
+        - !Ref AWS::NoValue
       LogsConfig:
         CloudWatchLogs:
           Status: ENABLED
