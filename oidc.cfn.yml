@@ -1,7 +1,6 @@
 ---
 AWSTemplateFormatVersion: '2010-09-09'
 Description: GitHub OIDC identity provider and IAM role for GitHub Actions
-
 Parameters:
   SystemName:
     Type: String
@@ -45,7 +44,6 @@ Parameters:
     Description: >-
       GitHub organization names to add as client IDs
       (leave empty for none)
-
 Conditions:
   CreateOidcProvider: !Equals
     - !Ref EnableGitHubOidc
@@ -60,7 +58,6 @@ Conditions:
         - 0
         - !Ref GitHubOrganizationNames
       - ''
-
 Resources:
   GitHubOidcProvider:
     Type: AWS::IAM::OIDCProvider
@@ -89,7 +86,6 @@ Resources:
           Value: !Ref SystemName
         - Key: EnvType
           Value: !Ref EnvType
-
   GitHubIamRole:
     Type: AWS::IAM::Role
     Properties:
@@ -119,16 +115,15 @@ Resources:
           Value: !Ref SystemName
         - Key: EnvType
           Value: !Ref EnvType
-
 Outputs:
   GitHubIamOidcProviderArn:
     Condition: CreateOidcProvider
     Description: ARN of the GitHub OIDC identity provider
     Value: !GetAtt GitHubOidcProvider.Arn
     Export:
-      Name: !Sub '${AWS::StackName}-GitHubIamOidcProviderArn'
+      Name: !Sub '${SystemName}-${EnvType}-github-iam-oidc-provider-arn'
   GitHubIamRoleArn:
     Description: ARN of the GitHub IAM role
     Value: !GetAtt GitHubIamRole.Arn
     Export:
-      Name: !Sub '${AWS::StackName}-GitHubIamRoleArn'
+      Name: !Sub '${SystemName}-${EnvType}-github-iam-role-arn'
