@@ -1,7 +1,6 @@
 ---
 AWSTemplateFormatVersion: '2010-09-09'
 Description: KMS key for CloudWatch Logs encryption
-
 Parameters:
   SystemName:
     Type: String
@@ -32,12 +31,10 @@ Parameters:
     MinValue: 90
     MaxValue: 2560
     Description: Number of days between automatic key rotations
-
 Conditions:
   ShouldCreateKmsKey: !Equals
     - !Ref CreateKmsKey
     - 'true'
-
 Resources:
   KmsKey:
     Type: AWS::KMS::Key
@@ -78,24 +75,22 @@ Resources:
           Value: !Ref SystemName
         - Key: EnvType
           Value: !Ref EnvType
-
   KmsKeyAlias:
     Type: AWS::KMS::Alias
     Condition: ShouldCreateKmsKey
     Properties:
       AliasName: !Sub 'alias/${SystemName}-${EnvType}-kms-key'
       TargetKeyId: !Ref KmsKey
-
 Outputs:
   KmsKeyArn:
     Condition: ShouldCreateKmsKey
     Description: ARN of the KMS key
     Value: !GetAtt KmsKey.Arn
     Export:
-      Name: !Sub '${AWS::StackName}-KmsKeyArn'
+      Name: !Sub '${SystemName}-${EnvType}-kms-key-arn'
   KmsKeyAliasName:
     Condition: ShouldCreateKmsKey
     Description: Name of the KMS key alias
     Value: !Ref KmsKeyAlias
     Export:
-      Name: !Sub '${AWS::StackName}-KmsKeyAliasName'
+      Name: !Sub '${SystemName}-${EnvType}-kms-key-alias-name'
