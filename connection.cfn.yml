@@ -43,8 +43,3 @@ Outputs:
     Value: !GetAtt GitHubConnection.ConnectionArn
     Export:
       Name: !Sub '${SystemName}-${EnvType}-github-connection-arn'
-  GitHubConnectionStatus:
-    Description: Status of the CodeConnections connection
-    Value: !GetAtt GitHubConnection.ConnectionStatus
-    Export:
-      Name: !Sub '${SystemName}-${EnvType}-github-connection-status'
