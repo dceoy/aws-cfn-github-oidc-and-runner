@@ -2,7 +2,7 @@
 
 ## Overview
 
-The main deliverables are [`oidc.cfn.yml`](oidc.cfn.yml), [`kms.cfn.yml`](kms.cfn.yml), and [`codebuild.cfn.yml`](codebuild.cfn.yml). The OIDC template creates the GitHub OIDC identity provider and IAM role for GitHub Actions, the KMS template creates a KMS key for CloudWatch Logs encryption, and the CodeBuild template provisions a CodeBuild project as a GitHub Actions self-hosted runner with CloudWatch Logs and an IAM service role.
+The main deliverables are [`oidc.cfn.yml`](oidc.cfn.yml), [`connection.cfn.yml`](connection.cfn.yml), [`kms.cfn.yml`](kms.cfn.yml), and [`codebuild.cfn.yml`](codebuild.cfn.yml). The OIDC template creates the GitHub OIDC identity provider and IAM role for GitHub Actions, the connection template creates a CodeConnections connection for GitHub, the KMS template creates a KMS key for CloudWatch Logs encryption, and the CodeBuild template provisions a CodeBuild project as a GitHub Actions self-hosted runner with CloudWatch Logs and an IAM service role.
 
 ## Deployment Instructions
 
@@ -10,6 +10,7 @@ Use the AWS CLI to deploy or update the stacks:
 
 ```bash
 aws cloudformation deploy --template-file oidc.cfn.yml --stack-name gha-dev-oidc --capabilities CAPABILITY_NAMED_IAM --parameter-overrides GitHubRepositoriesRequiringOidc='repo:dceoy/*:*' IamPolicyArns='arn:aws:iam::aws:policy/AdministratorAccess'
+aws cloudformation deploy --template-file connection.cfn.yml --stack-name gha-dev-connection
 aws cloudformation deploy --template-file kms.cfn.yml --stack-name gha-dev-kms
 aws cloudformation deploy --template-file codebuild.cfn.yml --stack-name gha-dev-codebuild --capabilities CAPABILITY_NAMED_IAM --parameter-overrides GitHubRepository=dceoy/aws-cfn-github-oidc-and-runner
 ```
