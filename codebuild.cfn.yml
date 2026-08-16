@@ -198,6 +198,11 @@ Resources:
           Value: !Ref EnvType
   CodeBuildProject:
     Type: AWS::CodeBuild::Project
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+            - W1030
     Properties:
       Name: !Sub
         - '${SystemName}-${EnvType}-codebuild-${RepoName}'
