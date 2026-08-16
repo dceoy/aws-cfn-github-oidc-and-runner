@@ -3,6 +3,11 @@ AWSTemplateFormatVersion: '2010-09-09'
 Description: >-
   CodeBuild project as GitHub Actions self-hosted runner
   with CloudWatch Logs and IAM role
+Metadata:
+  cfn-lint:
+    config:
+      ignore_checks:
+        - W1030  # cfn-lint schema limits TimeoutInMinutes to 480 instead of 2160
 Parameters:
   SystemName:
     Type: String
